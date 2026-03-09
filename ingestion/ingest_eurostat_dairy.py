@@ -9,26 +9,46 @@ BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 
 
 def fetch_milk_collection():
-    """Eurostat apro_mk_strsh — milk collected by dairies, Sweden annual."""
+    """Eurostat apro_mk_pobta via SDMX 2.1 — milk production Sweden."""
     print("Fetching milk collection data...")
-    url = f"{BASE}/apro_mk_pobta"
-    params = {"geo": "SE", "format": "JSON", "lang": "en", "unit": "THS_T"}
+    url = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/apro_mk_pobta"
+    params = {
+        "format": "JSON",
+        "lang": "EN",
+        "geo": "SE",
+        "startPeriod": "2000",
+        "endPeriod": "2025"
+    }
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
-    time_index = data["dimension"]["time"]["category"]["index"]
-    values = data["value"]
+
+    structure = data["data"]["structures"][0]
+    series_dims = structure["dimensions"]["series"]
+    obs_dims = structure["dimensions"]["observation"][0]["values"]
+    all_series = data["data"]["dataSets"][0]["series"]
+
     rows = []
-    for period, pos in time_index.items():
-        value = values.get(str(pos))
-        if value is not None:
-            rows.append({
-                "country_code": "SE",
-                "year": int(period),
-                "milk_collected_tonnes": float(value),
-                "source": "Eurostat"
-            })
-    print(f"Milk collection: {len(rows)} rows")
+    for series_key, series_data in all_series.items():
+        indices = [int(i) for i in series_key.split(":")]
+        # extract unit and dairyprod labels for context
+        dim_labels = {
+            dim["id"]: dim["values"][indices[i]]["id"]
+            for i, dim in enumerate(series_dims)
+        }
+        for obs_idx, obs_values in series_data["observations"].items():
+            value = obs_values[0]
+            if value is not None:
+                rows.append({
+                    "country_code": "SE",
+                    "year": obs_dims[int(obs_idx)]["id"],
+                    "dairyprod": dim_labels.get("dairyprod", ""),
+                    "unit": dim_labels.get("unit", ""),
+                    "value": float(value),
+                    "source": "Eurostat_SDMX"
+                })
+
+    print(f"Milk data: {len(rows)} rows")
     return pd.DataFrame(rows)
 
 
@@ -148,4 +168,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
