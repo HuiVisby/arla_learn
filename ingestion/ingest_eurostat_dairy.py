@@ -23,41 +23,35 @@ def fetch_milk_collection():
     """Eurostat apro_mk_pobta via SDMX 2.1 — milk production Sweden."""
     print("Fetching milk collection data...")
     url = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/apro_mk_pobta"
-    params = {
-        "format": "JSON",
-        "lang": "EN",
-        "geo": "SE",
-        "startPeriod": "2000",
-        "endPeriod": "2025"
-    }
+    params = {"format": "JSON", "lang": "EN", "geo": "SE", "startPeriod": "2000", "endPeriod": "2025"}
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
 
-    structure = data["data"]["structures"][0]
-    series_dims = structure["dimensions"]["series"]
-    obs_dims = structure["dimensions"]["observation"][0]["values"]
-    all_series = data["data"]["dataSets"][0]["series"]
+    dim_ids = data["id"]
+    dim_sizes = data["size"]
+    dims = data["dimension"]
+    values = data.get("value", {})
+
+    # Build lookup lists for each dimension
+    dim_values = [list(dims[d]["category"]["index"].keys()) for d in dim_ids]
 
     rows = []
-    for series_key, series_data in all_series.items():
-        indices = [int(i) for i in series_key.split(":")]
-        # extract unit and dairyprod labels for context
-        dim_labels = {
-            dim["id"]: dim["values"][indices[i]]["id"]
-            for i, dim in enumerate(series_dims)
-        }
-        for obs_idx, obs_values in series_data["observations"].items():
-            value = obs_values[0]
-            if value is not None:
-                rows.append({
-                    "country_code": "SE",
-                    "year": obs_dims[int(obs_idx)]["id"],
-                    "dairyprod": dim_labels.get("dairyprod", ""),
-                    "unit": dim_labels.get("unit", ""),
-                    "value": float(value),
-                    "source": "Eurostat_SDMX"
-                })
+    for str_pos, value in values.items():
+        if value is None:
+            continue
+        pos = int(str_pos)
+        # decode position into dimension indices
+        indices = []
+        for size in reversed(dim_sizes):
+            indices.append(pos % size)
+            pos //= size
+        indices.reverse()
+
+        row = {dim_ids[i]: dim_values[i][indices[i]] for i in range(len(dim_ids))}
+        row["value"] = float(value)
+        row["source"] = "Eurostat"
+        rows.append(row)
 
     print(f"Milk data: {len(rows)} rows")
     return pd.DataFrame(rows)
@@ -179,6 +173,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
