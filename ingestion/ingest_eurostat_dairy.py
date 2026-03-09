@@ -19,7 +19,7 @@ import pandas as pd
 import requests
 import pandas as pd
 
-def fetch_milk_collection_v3():
+def fetch_milk_collection():
     """Arla Intel: Final fix using JSON-stat 2.0 endpoint."""
     print("Attempting to fetch Sweden Milk Collection (D1110A)...")
     
@@ -189,6 +189,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
