@@ -13,22 +13,26 @@ BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 import requests
 import pandas as pd
 
+import requests
+import pandas as pd
+
 def fetch_milk_collection():
-    """Updated for 2026 Eurostat Dissemination API."""
-    print("Fetching milk collection data (fixed endpoint)...")
+    """Corrected for Eurostat SDMX 2.1 Positional Parameters."""
+    print("Fetching milk collection data...")
     
-    # New URL structure: /data/{dataset}/{filter}
-    # Filter: freq(A).dairyprod(ALL).unit(THS_T).geo(SE)
-    # Using dots for wildcards if you want all products
+    # Dataset: apro_mk_pobta
+    # Filter: freq.dairyprod.unit.geo
+    # D1110A = Milk collected from farms
     dataset = "apro_mk_pobta"
-    filter_key = "A..THS_T.SE" 
+    filter_key = "A.D1110A.THS_T.SE" 
+    
+    # Updated Base URL for 2026 Dissemination API
     url = f"https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/{dataset}/{filter_key}"
     
     params = {
-        "format": "JSON", # Returns JSON-stat 2.0
+        "format": "JSON",
         "startPeriod": "2015",
-        "endPeriod": "2025",
-        "lang": "en"
+        "endPeriod": "2025"
     }
     
     try:
@@ -36,20 +40,29 @@ def fetch_milk_collection():
         r.raise_for_status()
         data = r.json()
         
-        # Parse the JSON-stat 2.0 response
-        # (Eurostat's modern JSON format is slightly different from the old SDMX-JSON)
-        val_list = data['value']
-        # Note: You may need a more complex parser if multiple series are returned
-        # For a single geo/unit slice, the 'value' dict contains the observations
+        # Mapping the JSON-stat response
+        observations = data['value']
+        time_period_dim = data['dimension']['time']['category']['label']
+        years = list(time_period_dim.values())
+        values = list(observations.values())
         
-        print(f"Successfully fetched {len(val_list)} data points.")
-        # ... logic to map indices to years ...
+        df = pd.DataFrame({
+            "year": years,
+            "value": values,
+            "unit": "THS_T",
+            "product": "Milk collected from farms",
+            "country": "SE"
+        })
         
-    except requests.exceptions.HTTPError as e:
-        print(f"Update failed: {e}")
-        return None
+        print(f"Success: Loaded {len(df)} years of milk data.")
+        return df
 
-fetch_milk_collection()
+    except Exception as e:
+        print(f"Failed again: {e}")
+        return pd.DataFrame() # Return empty DF to avoid 'NoneType' errors
+
+# Run the fix
+#df_milk = fetch_milk_collection_final()
 
 def fetch_internet_activities_by_age():
     """Eurostat isoc_ci_ac_i — internet activities by age group for Sweden."""
@@ -167,6 +180,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
