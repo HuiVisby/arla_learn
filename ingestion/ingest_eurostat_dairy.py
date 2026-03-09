@@ -11,8 +11,8 @@ BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 def fetch_milk_collection():
     """Eurostat apro_mk_strsh — milk collected by dairies, Sweden annual."""
     print("Fetching milk collection data...")
-    url = f"{BASE}/apro_mk_strsh"
-    params = {"geo": "SE", "format": "JSON", "lang": "en"}
+    url = f"{BASE}/apro_mk_pobta"
+    params = {"geo": "SE", "format": "JSON", "lang": "en", "unit": "THS_T"}
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
@@ -148,3 +148,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
