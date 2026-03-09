@@ -37,11 +37,11 @@ def fetch_scb_food_retail():
             })
     print(f"Food retail: {len(rows)} rows")
     return pd.DataFrame(rows)
-  
+
 def fetch_scb_organic_sales():
-    """Fetch organic farming area from SCB JO0109."""
-    print("Fetching SCB organic farming data...")
-    url = "https://api.scb.se/OV0104/v1/doris/en/ssd/JO/JO0109/JO0109A/EkoArealAr"
+    """Fetch organic food retail sales from SCB HA0103A/EkoLivsNN."""
+    print("Fetching SCB organic food sales...")
+    url = "https://api.scb.se/OV0104/v1/doris/en/ssd/HA/HA0103/HA0103A/EkoLivsNN"
     try:
         meta = requests.get(url, timeout=30).json()
         variables = {v["code"]: v["values"] for v in meta.get("variables", [])}
@@ -55,24 +55,30 @@ def fetch_scb_organic_sales():
         r = requests.post(url, json=payload, timeout=60)
         r.raise_for_status()
         data = r.json()
-        dims = list(data["dimension"].keys())
-        time_dim = dims[-1]
-        periods = list(data["dimension"][time_dim]["category"]["index"].keys())
-        values = data.get("value", [])
+        dim_ids = data["id"]
+        dim_sizes = data["size"]
+        dims = data["dimension"]
+        values = data.get("value", {})
+        dim_values = [list(dims[d]["category"]["index"].keys()) for d in dim_ids]
         rows = []
-        for period, value in zip(periods, values):
-            if value is not None:
-                rows.append({
-                    "period": period,
-                    "organic_area_ha": float(value),
-                    "source": "SCB"
-                })
-        print(f"Organic area: {len(rows)} rows")
+        for str_pos, value in values.items():
+            if value is None:
+                continue
+            pos = int(str_pos)
+            indices = []
+            for size in reversed(dim_sizes):
+                indices.append(pos % size)
+                pos //= size
+            indices.reverse()
+            row = {dim_ids[i]: dim_values[i][indices[i]] for i in range(len(dim_ids))}
+            row["value"] = float(value)
+            row["source"] = "SCB"
+            rows.append(row)
+        print(f"Organic sales: {len(rows)} rows")
         return pd.DataFrame(rows)
     except Exception as e:
         print(f"SCB organic error: {e}")
         return pd.DataFrame()
-
 
 
 def load_to_bigquery(df, table_name):
@@ -102,5 +108,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
