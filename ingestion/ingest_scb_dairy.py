@@ -61,24 +61,26 @@ def fetch_scb_organic_sales():
         values = data.get("value", {})
         dim_values = [list(dims[d]["category"]["index"].keys()) for d in dim_ids]
         rows = []
-        for str_pos, value in values.items():
+        value_list = data.get("value", [])
+        # handle both list and dict formats
+        if isinstance(value_list, dict):
+            items = [(int(k), v) for k, v in value_list.items()]
+        else:
+            items = [(i, v) for i, v in enumerate(value_list)]
+
+        for pos, value in items:
             if value is None:
                 continue
-            pos = int(str_pos)
             indices = []
+            remaining = pos
             for size in reversed(dim_sizes):
-                indices.append(pos % size)
-                pos //= size
+                indices.append(remaining % size)
+                remaining //= size
             indices.reverse()
             row = {dim_ids[i]: dim_values[i][indices[i]] for i in range(len(dim_ids))}
             row["value"] = float(value)
             row["source"] = "SCB"
             rows.append(row)
-        print(f"Organic sales: {len(rows)} rows")
-        return pd.DataFrame(rows)
-    except Exception as e:
-        print(f"SCB organic error: {e}")
-        return pd.DataFrame()
 
 
 def load_to_bigquery(df, table_name):
@@ -108,6 +110,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
