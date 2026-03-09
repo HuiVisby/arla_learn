@@ -120,7 +120,7 @@ def load_to_bigquery(df, table_name):
 
 def main():
     for fn, table in [
-        (fetch_milk_collection, "eurostat_milk_collection"),
+        (fetch_milk_collection_sdmx, "eurostat_milk_collection"),
         (fetch_internet_activities_by_age, "eurostat_internet_activities_age"),
         (fetch_online_buying_by_age, "eurostat_online_buying_age"),
     ]:
@@ -134,6 +134,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
