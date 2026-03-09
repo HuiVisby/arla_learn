@@ -15,7 +15,7 @@ def fetch_scb_food_retail():
         "geo": "SE",
         "s_adj": "NSA",
         "unit": "I21",
-        "nace_r2": "G47.1",
+        "nace_r2": "G47",
         "format": "JSON",
         "lang": "en"
     }
@@ -37,42 +37,31 @@ def fetch_scb_food_retail():
             })
     print(f"Food retail: {len(rows)} rows")
     return pd.DataFrame(rows)
-
-
+  
 def fetch_scb_organic_sales():
-    """Fetch organic food sales share from SCB PxWeb."""
-    print("Fetching SCB organic food sales...")
-    url = "https://api.scb.se/OV0104/v1/doris/en/ssd/HA/HA0103/HA0103A/EkoForsaljKv"
-    try:
-        meta = requests.get(url, timeout=30).json()
-        variables = {v["code"]: v["values"] for v in meta.get("variables", [])}
-        payload = {
-            "query": [
-                {"code": k, "selection": {"filter": "all", "values": ["*"]}}
-                for k in variables
-            ],
-            "response": {"format": "json-stat2"}
-        }
-        r = requests.post(url, json=payload, timeout=60)
-        r.raise_for_status()
-        data = r.json()
-        dims = list(data["dimension"].keys())
-        time_dim = dims[-1]
-        periods = list(data["dimension"][time_dim]["category"]["index"].keys())
-        values = data.get("value", [])
-        rows = []
-        for period, value in zip(periods, values):
-            if value is not None:
-                rows.append({
-                    "period": period,
-                    "organic_sales_share_pct": float(value),
-                    "source": "SCB"
-                })
-        print(f"Organic sales: {len(rows)} rows")
-        return pd.DataFrame(rows)
-    except Exception as e:
-        print(f"SCB organic error: {e}")
-        return pd.DataFrame()
+    """Fetch organic food market share from Eurostat org_cropar_gen."""
+    print("Fetching organic food data...")
+    url = f"https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/org_cropar_gen"
+    params = {"geo": "SE", "format": "JSON", "lang": "en"}
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+    time_index = data["dimension"]["time"]["category"]["index"]
+    values = data["value"]
+    rows = []
+    for period, pos in time_index.items():
+        value = values.get(str(pos))
+        if value is not None:
+            rows.append({
+                "country_code": "SE",
+                "year": int(period),
+                "organic_area_ha": float(value),
+                "source": "Eurostat"
+            })
+    print(f"Organic farming: {len(rows)} rows")
+    return pd.DataFrame(rows)
+
+
 
 
 def load_to_bigquery(df, table_name):
@@ -102,3 +91,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
