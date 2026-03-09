@@ -20,58 +20,48 @@ import requests
 import pandas as pd
 
 def fetch_milk_collection():
-    """Arla Intel: Final fix using JSON-stat 2.0 endpoint."""
-    print("Attempting to fetch Sweden Milk Collection (D1110A)...")
-    
-    # Using the 'statistics' endpoint instead of 'sdmx' for better JSON stability
-    url = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/apro_mk_pobta"
-    
-    # We specify dimensions as flat parameters for this specific API version
+    """Eurostat apro_mk_pobta via SDMX 2.1 — milk production Sweden."""
+    print("Fetching milk collection data...")
+    url = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/apro_mk_pobta"
     params = {
-        "lang": "en",
+        "format": "JSON",
+        "lang": "EN",
         "geo": "SE",
-        "unit": "THS_T",
-        "dairyprod": "D1110A", # Milk collected from farms
-        "freq": "A",           # Annual
-        "sinceTimePeriod": "2015"
+        "startPeriod": "2000",
+        "endPeriod": "2025"
     }
-    
-    try:
-        r = requests.get(url, params=params, timeout=30)
-        
-        # If it still hits a 400, let's see exactly what the API is complaining about
-        if r.status_code != 200:
-            print(f"Server responded with {r.status_code}: {r.text}")
-            r.raise_for_status()
-            
-        data = r.json()
-        
-        # Parse JSON-stat 2.0 structure
-        indices = data['dimension']['time']['category']['index']
-        labels = data['dimension']['time']['category']['label']
-        values = data['value']
-        
-        # JSON-stat values are a dict where keys are flat indices ("0", "1", etc.)
-        rows = []
-        for label_key, year_val in labels.items():
-            idx = str(indices[label_key])
-            if idx in values:
+    r = requests.get(url, params=params, timeout=30)
+    r.raise_for_status()
+    data = r.json()
+
+    structure = data["data"]["structures"][0]
+    series_dims = structure["dimensions"]["series"]
+    obs_dims = structure["dimensions"]["observation"][0]["values"]
+    all_series = data["data"]["dataSets"][0]["series"]
+
+    rows = []
+    for series_key, series_data in all_series.items():
+        indices = [int(i) for i in series_key.split(":")]
+        # extract unit and dairyprod labels for context
+        dim_labels = {
+            dim["id"]: dim["values"][indices[i]]["id"]
+            for i, dim in enumerate(series_dims)
+        }
+        for obs_idx, obs_values in series_data["observations"].items():
+            value = obs_values[0]
+            if value is not None:
                 rows.append({
-                    "year": year_val,
-                    "value_ths_t": values[idx],
-                    "product": "Milk Collection (D1110A)",
-                    "source": "Eurostat_API_v1"
+                    "country_code": "SE",
+                    "year": obs_dims[int(obs_idx)]["id"],
+                    "dairyprod": dim_labels.get("dairyprod", ""),
+                    "unit": dim_labels.get("unit", ""),
+                    "value": float(value),
+                    "source": "Eurostat_SDMX"
                 })
-        
-        df = pd.DataFrame(rows)
-        print(f"✅ Success! Loaded {len(df)} rows for Arla Intel.")
-        return df
 
-    except Exception as e:
-        print(f"❌ Critical Error: {e}")
-        return pd.DataFrame() # Prevents the 'NoneType' crash in your main loop
+    print(f"Milk data: {len(rows)} rows")
+    return pd.DataFrame(rows)
 
-#df_milk = fetch_milk_collection_v3()
 
 def fetch_internet_activities_by_age():
     """Eurostat isoc_ci_ac_i — internet activities by age group for Sweden."""
@@ -189,6 +179,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
