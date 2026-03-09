@@ -11,46 +11,54 @@ BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 def fetch_milk_collection():
     """Eurostat apro_mk_pobta via SDMX 2.1 — milk production Sweden."""
     print("Fetching milk collection data...")
-    url = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/apro_mk_pobta"
+    
+    # URL pattern: [API]/data/[DATASET]/[FILTER]
+    # Filter: . (freq) . (dairyprod) .THS_T (unit) .SE (geo)
+    url = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/apro_mk_pobta/..THS_T.SE"
+    
     params = {
         "format": "JSON",
-        "lang": "EN",
-        "geo": "SE",
         "startPeriod": "2000",
         "endPeriod": "2025"
     }
+    
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
-
-    structure = data["data"]["structures"][0]
-    series_dims = structure["dimensions"]["series"]
-    obs_dims = structure["dimensions"]["observation"][0]["values"]
-    all_series = data["data"]["dataSets"][0]["series"]
-
+  
+    # The data structure in SDMX JSON-stat or JSON-data can be deeply nested
+    # We navigate the 'dimensions' and 'observations'
+    observations = data["data"]["dataSets"][0]["series"]
+    dimensions = data["data"]["structure"]["dimensions"]
+    
+    # Map dimension values for easy lookup
+    dim_map = {
+        i: {idx: val["id"] for idx, val in enumerate(d["values"])}
+        for i, d in enumerate(dimensions["series"])
+    }
+    time_map = {idx: val["id"] for idx, val in enumerate(dimensions["observation"][0]["values"])}
+  
     rows = []
-    for series_key, series_data in all_series.items():
-        indices = [int(i) for i in series_key.split(":")]
-        # extract unit and dairyprod labels for context
-        dim_labels = {
-            dim["id"]: dim["values"][indices[i]]["id"]
-            for i, dim in enumerate(series_dims)
-        }
-        for obs_idx, obs_values in series_data["observations"].items():
-            value = obs_values[0]
-            if value is not None:
-                rows.append({
-                    "country_code": "SE",
-                    "year": obs_dims[int(obs_idx)]["id"],
-                    "dairyprod": dim_labels.get("dairyprod", ""),
-                    "unit": dim_labels.get("unit", ""),
-                    "value": float(value),
-                    "source": "Eurostat_SDMX"
-                })
-
+    for key, content in observations.items():
+        # Key is "0:0:0:0" representing indices of the dimensions
+        indices = key.split(":")
+        
+        # dairyprod is index 1 in the series dimensions for this dataset
+        dairy_prod_id = dim_map[1][int(indices[1])]
+        unit_id = dim_map[2][int(indices[2])]
+        
+        for obs_idx, obs_val in content["observations"].items():
+            rows.append({
+                "country_code": "SE",
+                "year": time_map[int(obs_idx)],
+                "dairyprod": dairy_prod_id,
+                "unit": unit_id,
+                "value": float(obs_val[0]),
+                "source": "Eurostat_SDMX"
+            })
+  
     print(f"Milk data: {len(rows)} rows")
     return pd.DataFrame(rows)
-
 
 def fetch_internet_activities_by_age():
     """Eurostat isoc_ci_ac_i — internet activities by age group for Sweden."""
@@ -168,5 +176,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
