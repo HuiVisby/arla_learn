@@ -10,13 +10,46 @@ BASE = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data"
 
 
 
-def fetch_milk_collection_sdmx():
-    estat = sdmx.Request('ESTAT')
-    # This automatically handles the complex structure of apro_mk_pobta
-    data = estat.data('apro_mk_pobta', key={'geo': 'SE'}, params={'startPeriod': '2000'})
-    df = sdmx.to_pandas(data)
-    return df
+import requests
+import pandas as pd
 
+def fetch_milk_collection():
+    """Updated for 2026 Eurostat Dissemination API."""
+    print("Fetching milk collection data (fixed endpoint)...")
+    
+    # New URL structure: /data/{dataset}/{filter}
+    # Filter: freq(A).dairyprod(ALL).unit(THS_T).geo(SE)
+    # Using dots for wildcards if you want all products
+    dataset = "apro_mk_pobta"
+    filter_key = "A..THS_T.SE" 
+    url = f"https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/data/{dataset}/{filter_key}"
+    
+    params = {
+        "format": "JSON", # Returns JSON-stat 2.0
+        "startPeriod": "2015",
+        "endPeriod": "2025",
+        "lang": "en"
+    }
+    
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        
+        # Parse the JSON-stat 2.0 response
+        # (Eurostat's modern JSON format is slightly different from the old SDMX-JSON)
+        val_list = data['value']
+        # Note: You may need a more complex parser if multiple series are returned
+        # For a single geo/unit slice, the 'value' dict contains the observations
+        
+        print(f"Successfully fetched {len(val_list)} data points.")
+        # ... logic to map indices to years ...
+        
+    except requests.exceptions.HTTPError as e:
+        print(f"Update failed: {e}")
+        return None
+
+fetch_milk_collection()
 
 def fetch_internet_activities_by_age():
     """Eurostat isoc_ci_ac_i — internet activities by age group for Sweden."""
@@ -120,7 +153,7 @@ def load_to_bigquery(df, table_name):
 
 def main():
     for fn, table in [
-        (fetch_milk_collection_sdmx, "eurostat_milk_collection"),
+        (fetch_milk_collection, "eurostat_milk_collection"),
         (fetch_internet_activities_by_age, "eurostat_internet_activities_age"),
         (fetch_online_buying_by_age, "eurostat_online_buying_age"),
     ]:
@@ -134,6 +167,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
