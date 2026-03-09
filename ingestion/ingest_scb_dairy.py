@@ -81,6 +81,11 @@ def fetch_scb_organic_sales():
             row["value"] = float(value)
             row["source"] = "SCB"
             rows.append(row)
+        print(f"Organic sales: {len(rows)} rows")
+        return pd.DataFrame(rows)
+    except Exception as e:
+        print(f"SCB organic error: {e}")
+        return pd.DataFrame()
 
 
 def load_to_bigquery(df, table_name):
@@ -110,6 +115,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
