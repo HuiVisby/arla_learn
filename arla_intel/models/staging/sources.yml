@@ -1,0 +1,15 @@
+version: 2
+sources:
+  - name: raw_ingest
+    database: arla-digital-intel-2025
+    schema: raw_ingest
+    tables:
+      - name: eurostat_milk_collection
+      - name: eurostat_internet_activities_age
+      - name: eurostat_online_buying_age
+      - name: scb_food_retail_index
+      - name: scb_organic_sales
+      - name: google_trends_dairy_weekly
+      - name: google_trends_dairy_regional
+
+
