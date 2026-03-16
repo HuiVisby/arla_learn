@@ -1,8 +1,8 @@
- with source as (
+  with source as (
       select * from {{ source('raw_ingest', 'eurostat_internet_activities_age') }}
   ),
 
- cleaned as (
+  cleaned as (
       select
           country_code,
           age_group,
@@ -15,12 +15,25 @@
               when 'Y65_74' then '65-74'
           end                         as age_label,
           activity,
+          case activity
+              when 'I_IUSNET'  then 'Social Networks'
+              when 'I_IUCHAT1' then 'Messaging & Chat'
+              when 'I_IUVOD'   then 'Video on Demand'
+              when 'I_IUSTV'   then 'Streaming TV'
+              when 'I_IUMUSS'  then 'Music Streaming'
+              when 'I_IUNW'    then 'Online News'
+              when 'I_IUPCAST' then 'Podcasts'
+              when 'I_IUGM'    then 'Online Gaming'
+              when 'I_IUUPL'   then 'Content Creation'
+          end                         as channel_name,
           year,
-          pct_individuals,
+          pct_individuals
       from source
-      where pct_individuals is not null
+      where activity in (
+          'I_IUSNET', 'I_IUCHAT1', 'I_IUVOD', 'I_IUSTV',
+          'I_IUMUSS', 'I_IUNW', 'I_IUPCAST', 'I_IUGM', 'I_IUUPL'
+      )
+      and pct_individuals is not null
   )
 
-select * from cleaned
-
-
+  select * from cleaned
